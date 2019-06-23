@@ -2,6 +2,7 @@ import argparse
 from data import DataGenerator
 from torch.utils.data import DataLoader
 
+
 def parse_args():
     parser = argparse.ArgumentParser('Training script')
     parser.add_argument('--num_vocab', type=int, default=100)
