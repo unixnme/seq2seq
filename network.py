@@ -81,16 +81,19 @@ class Network(nn.Module):
         hid = self.encoder(seq_in)
 
         trg = seq_trg[:,0]
+        result = seq_trg.clone()
         loss = 0
         for idx in range(seq_trg_len - 1):
             out, hid = self.decoder(trg, hid) # out: [batch_size, num_vocab]
             loss += F.cross_entropy(out, seq_trg[:,idx+1])
+            top1 = out.argmax(-1)
+            result[:,idx+1] = top1
             if force_teach[idx].item():
-                trg = seq_trg[:,idx]
+                trg = seq_trg[:,idx+1]
             else:
-                trg = out.argmax(-1)
+                trg = top1
 
-        return loss
+        return loss, result
 
 
 if __name__ == '__main__':

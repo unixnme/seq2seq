@@ -30,7 +30,7 @@ class DataGenerator(object):
         self.BOS = 0
         self.EOS = max_vocab + 1
         self.data = np.ones([self.num_examples, max_length], dtype=np.int64) * self.EOS
-        self.target = np.ones([self.num_examples, max_length + 1], dtype=np.int64) * self.EOS
+        self.target = np.ones([self.num_examples, max_length + 2], dtype=np.int64) * self.EOS
         self.seq_lengths = np.random.randint(1, max_length + 1, [len(self.data)])
         for idx in range(len(self.data)):
             seq_length = self.seq_lengths[idx]
