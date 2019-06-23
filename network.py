@@ -24,15 +24,17 @@ class Encoder(RnnLayer):
                  num_vocab:int,
                  emb_dim:int,
                  hidden_dim:int,
+                 drop:float,
                  rnn_type:str):
         super().__init__(emb_dim, hidden_dim, rnn_type)
+        self.dropout = nn.Dropout(drop)
         self.embedding = nn.Embedding(num_vocab, emb_dim)
 
     def forward(self, seq):
         '''
         seq: [batch_size, seq_len]
         '''
-        emb = self.embedding(seq) # [batch_size, seq_len, emb_dim]
+        emb = self.dropout(self.embedding(seq)) # [batch_size, seq_len, emb_dim]
         _, hid = self.rnn(emb)
         return hid
 
@@ -42,8 +44,10 @@ class Decoder(RnnLayer):
                  num_vocab:int,
                  emb_dim:int,
                  hidden_dim:int,
+                 drop:float,
                  rnn_type:str):
         super().__init__(emb_dim, hidden_dim, rnn_type)
+        self.dropout = nn.Dropout(drop)
         self.embedding = nn.Embedding(num_vocab, emb_dim)
         self.fc = nn.Linear(hidden_dim, num_vocab, bias=False)
 
@@ -52,7 +56,7 @@ class Decoder(RnnLayer):
         call this for each time frame
         x: [batch_size]
         '''
-        emb = self.embedding(x.unsqueeze(1)) # [batch_size, 1, emb_dim]
+        emb = self.dropout(self.embedding(x.unsqueeze(1))) # [batch_size, 1, emb_dim]
         out, hid = self.rnn(emb, hid) # out: [batch_size, 1, hidden_dim]
         out = self.fc(out.squeeze(1)) # [batch_size, num_vocab]
         return out, hid
@@ -64,12 +68,13 @@ class Network(nn.Module):
                  num_vocab_out:int,
                  emb_dim:int,
                  hidden_dim:int,
+                 drop:float,
                  rnn_type:str='GRU',
                  device:str='cpu'):
         super().__init__()
         self.device = device
-        self.encoder = Encoder(num_vocab_in, emb_dim, hidden_dim, rnn_type)
-        self.decoder = Decoder(num_vocab_out, emb_dim, hidden_dim, rnn_type)
+        self.encoder = Encoder(num_vocab_in, emb_dim, hidden_dim, drop, rnn_type)
+        self.decoder = Decoder(num_vocab_out, emb_dim, hidden_dim, drop, rnn_type)
 
     def forward(self, seq_in, seq_trg, force_prob:float=0.5):
         '''

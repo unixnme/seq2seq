@@ -10,11 +10,12 @@ import numpy as np
 def parse_args():
     parser = argparse.ArgumentParser('Training script')
     parser.add_argument('--num_vocab', type=int, default=10)
-    parser.add_argument('--max_length', type=int, default=10)
+    parser.add_argument('--max_length', type=int, default=20)
     parser.add_argument('--num_examples', type=int)
     parser.add_argument('--emb_dim', type=int, default=32)
     parser.add_argument('--hidden_dim', type=int, default=16)
     parser.add_argument('--rnn_type', type=str, default='GRU')
+    parser.add_argument('--drop', type=float, default=0.5)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--epochs', type=int, default=1000)
@@ -58,6 +59,7 @@ def main():
                       args.num_vocab + 2,
                       args.emb_dim,
                       args.hidden_dim,
+                      args.drop,
                       args.rnn_type,
                       args.device)
     #optimizer = optim.SGD(network.parameters(), args.lr, 0.99)
