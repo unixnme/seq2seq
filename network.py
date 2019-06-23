@@ -52,9 +52,9 @@ class Decoder(RnnLayer):
         call this for each time frame
         x: [batch_size]
         '''
-        emb = self.embedding(x.unsqueeze(1))
-        out, hid = self.rnn(emb, hid)
-        out = self.fc(out.squeeze(1))
+        emb = self.embedding(x.unsqueeze(1)) # [batch_size, 1, emb_dim]
+        out, hid = self.rnn(emb, hid) # out: [batch_size, 1, hidden_dim]
+        out = self.fc(out.squeeze(1)) # [batch_size, num_vocab]
         return out, hid
 
 
@@ -81,12 +81,16 @@ class Network(nn.Module):
         hid = self.encoder(seq_in)
 
         trg = seq_trg[:,0]
-        for idx in range(seq_trg_len):
-            out, hid = self.decoder(trg, hid)
+        loss = 0
+        for idx in range(seq_trg_len - 1):
+            out, hid = self.decoder(trg, hid) # out: [batch_size, num_vocab]
+            loss += F.cross_entropy(out, seq_trg[:,idx+1])
             if force_teach[idx].item():
                 trg = seq_trg[:,idx]
             else:
-                trg = out.argmax(dim=-1)
+                trg = out.argmax(-1)
+
+        return loss
 
 
 if __name__ == '__main__':
