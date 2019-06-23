@@ -1,12 +1,13 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Encoder(nn.Module):
+class RnnLayer(nn.Module):
     def __init__(self,
                  input_dim:int,
                  hidden_dim:int,
-                 rnn_type='GRU'):
+                 rnn_type:str):
         super().__init__()
         if rnn_type == 'GRU':
             layer = nn.GRU
@@ -17,27 +18,82 @@ class Encoder(nn.Module):
 
         self.rnn = layer(input_dim, hidden_dim, batch_first=True)
 
-    def forward(self, x):
-        '''
-        x is embedding vector of shape
-        [batch_size, seq_len, input_dim]
-        '''
-        seq_len = x.shape[1]
-        hid = None
-        for idx in range(seq_len):
-            token = x[:,[idx]]
-            _, hid = self.rnn(token, hid)
 
-        if isinstance(self.rnn, nn.LSTM):
-            hid =  hid[0]
+class Encoder(RnnLayer):
+    def __init__(self,
+                 num_vocab:int,
+                 emb_dim:int,
+                 hidden_dim:int,
+                 rnn_type:str):
+        super().__init__(emb_dim, hidden_dim, rnn_type)
+        self.embedding = nn.Embedding(num_vocab, emb_dim)
 
-        return hid.view(len(x), -1)
+    def forward(self, seq):
+        '''
+        seq: [batch_size, seq_len]
+        '''
+        emb = self.embedding(seq) # [batch_size, seq_len, emb_dim]
+        _, hid = self.rnn(emb)
+        return hid
+
+
+class Decoder(RnnLayer):
+    def __init__(self,
+                 num_vocab:int,
+                 emb_dim:int,
+                 hidden_dim:int,
+                 rnn_type:str):
+        super().__init__(emb_dim, hidden_dim, rnn_type)
+        self.embedding = nn.Embedding(num_vocab, emb_dim)
+        self.fc = nn.Linear(hidden_dim, num_vocab, bias=False)
+
+    def forward(self, x, hid):
+        '''
+        call this for each time frame
+        x: [batch_size]
+        '''
+        emb = self.embedding(x.unsqueeze(1))
+        out, hid = self.rnn(emb, hid)
+        out = self.fc(out.squeeze(1))
+        return out, hid
+
+
+class Network(nn.Module):
+    def __init__(self,
+                 num_vocab_in:int,
+                 num_vocab_out:int,
+                 emb_dim:int,
+                 hidden_dim:int,
+                 rnn_type:str='GRU',
+                 device:str='cpu'):
+        super().__init__()
+        self.device = device
+        self.encoder = Encoder(num_vocab_in, emb_dim, hidden_dim, rnn_type)
+        self.decoder = Decoder(num_vocab_out, emb_dim, hidden_dim, rnn_type)
+
+    def forward(self, seq_in, seq_trg, force_prob:float=0.5):
+        '''
+        seq_in: [batch_size, seq_in_len]
+        seq_trg: [batch_size, seq_trg_len]
+        '''
+        seq_trg_len = seq_trg.shape[1]
+        force_teach = torch.rand((seq_trg_len,)) < force_prob
+        hid = self.encoder(seq_in)
+
+        trg = seq_trg[:,0]
+        for idx in range(seq_trg_len):
+            out, hid = self.decoder(trg, hid)
+            if force_teach[idx].item():
+                trg = seq_trg[:,idx]
+            else:
+                trg = out.argmax(dim=-1)
 
 
 if __name__ == '__main__':
-    import torch
-
-    encoder = Encoder(128, 128)
-    x = torch.randn(2, 20, 128)
-    y = encoder(x)
-    print(y.shape)
+    network = Network(num_vocab_in=10,
+                      num_vocab_out=9,
+                      emb_dim=5,
+                      hidden_dim=7)
+    x = torch.randint(0,10,(2,3))
+    y = torch.randint(0,9,(2,4))
+    z = network(x, y)

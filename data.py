@@ -16,7 +16,7 @@ class Dataset(data.Dataset):
 
 class DataGenerator(object):
     def __init__(self,
-                 max_vocab:int=1000,
+                 max_vocab:int=1000, # without BOS & EOS
                  max_length:int=20,
                  num_examples:int=None,
                  ):
