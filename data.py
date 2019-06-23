@@ -15,14 +15,15 @@ class DataGenerator(object):
 
         self.BOS = 0
         self.EOS = max_vocab + 1
-        self.data = []
-        self.target = []
-        self.seq_lengths = np.random.randint(1, max_length + 1, [self.num_examples])
-        for idx in range(self.num_examples):
+        self.data = np.ones([self.num_examples, max_length]) * self.EOS
+        self.target = np.ones([self.num_examples, max_length + 1]) * self.EOS
+        self.seq_lengths = np.random.randint(1, max_length + 1, [len(self.data)])
+        for idx in range(len(self.data)):
             seq_length = self.seq_lengths[idx]
             seq = np.random.randint(1, max_vocab + 1, [seq_length])
-            self.data.append(seq)
-            self.target.append(seq[::-1])
+            self.data[idx][:seq_length] = seq
+            self.target[:,0] = self.BOS
+            self.target[idx][1:seq_length+1] = seq[::-1]
 
 
 if __name__ == '__main__':
