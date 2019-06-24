@@ -25,7 +25,7 @@ def parse_args():
     return args
 
 
-def single_step(network: Network, loader: DataLoader, optimizer=None):
+def single_step(network: Network, loader: DataLoader, optimizer=None, force_prob:float=0.5):
     train = True if optimizer is not None else False
     total_loss = 0
     total_correct = 0
@@ -37,7 +37,7 @@ def single_step(network: Network, loader: DataLoader, optimizer=None):
     for x, trg in loader:
         if train:
             optimizer.zero_grad()
-            loss, out = network(x, trg)
+            loss, out = network(x, trg, force_prob)
         else:
             loss, out = network(x, trg, 0)
         if train:
@@ -68,7 +68,7 @@ def main():
     optimizer = optim.RMSprop(network.parameters(), args.lr)
 
     for epoch in range(args.epochs):
-        acc, loss = single_step(network, train_loader, optimizer)
+        acc, loss = single_step(network, train_loader, optimizer, .5 - epoch / args.epochs)
         print("#%d: \tTRAIN  loss:%.03f \t acc:%.03f" % (epoch, loss, acc))
         acc, loss = single_step(network, test_loader)
         print("#%d: \tTEST  loss:%.03f \t acc:%.03f" % (epoch, loss, acc))
