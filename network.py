@@ -45,11 +45,14 @@ class Decoder(RnnLayer):
                  emb_dim:int,
                  hidden_dim:int,
                  drop:float,
+                 tied:bool,
                  rnn_type:str):
         super().__init__(emb_dim, hidden_dim, rnn_type)
         self.dropout = nn.Dropout(drop)
         self.embedding = nn.Embedding(num_vocab, emb_dim)
-        self.fc = nn.Linear(hidden_dim, num_vocab, bias=False)
+        if not tied:
+            self.fc = nn.Linear(hidden_dim, num_vocab, bias=False)
+        self.tied = tied
 
     def forward(self, x, hid):
         '''
@@ -58,7 +61,10 @@ class Decoder(RnnLayer):
         '''
         emb = self.dropout(self.embedding(x.unsqueeze(1))) # [batch_size, 1, emb_dim]
         out, hid = self.rnn(emb, hid) # out: [batch_size, 1, hidden_dim]
-        out = self.fc(out.squeeze(1)) # [batch_size, num_vocab]
+        if self.tied:
+            out = out.squeeze(1) @ self.embedding.weight.t()
+        else:
+            out = self.fc(out.squeeze(1)) # [batch_size, num_vocab]
         return out, hid
 
 
@@ -70,11 +76,12 @@ class Network(nn.Module):
                  hidden_dim:int,
                  drop:float,
                  rnn_type:str='GRU',
+                 tied:bool=False,
                  device:str='cpu'):
         super().__init__()
         self.device = device
         self.encoder = Encoder(num_vocab_in, emb_dim, hidden_dim, drop, rnn_type)
-        self.decoder = Decoder(num_vocab_out, emb_dim, hidden_dim, drop, rnn_type)
+        self.decoder = Decoder(num_vocab_out, emb_dim, hidden_dim, drop, tied, rnn_type)
 
     def forward(self, seq_in, seq_trg, force_prob:float=0.5):
         '''
