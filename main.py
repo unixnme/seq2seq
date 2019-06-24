@@ -37,7 +37,9 @@ def single_step(network: Network, loader: DataLoader, optimizer=None):
     for x, trg in loader:
         if train:
             optimizer.zero_grad()
-        loss, out = network(x, trg)
+            loss, out = network(x, trg)
+        else:
+            loss, out = network(x, trg, 0)
         if train:
             loss.backward()
             optimizer.step()
