@@ -21,6 +21,7 @@ def parse_args():
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--epochs', type=int, default=1000)
     parser.add_argument('--device', type=str, default='cpu')
+    parser.add_argument('--save', type=str, default='model.pt')
 
     args = parser.parse_args()
     if args.tied: assert args.emb_dim == args.hidden_dim
@@ -69,13 +70,22 @@ def main():
                       args.device)
     #optimizer = optim.SGD(network.parameters(), args.lr, 0.99)
     optimizer = optim.RMSprop(network.parameters(), args.lr)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, 1, .99)
 
+    best_loss = float('inf')
     for epoch in range(args.epochs):
+        for param_group in optimizer.param_groups:
+            print('#%d: \tLR %f' % (epoch, param_group['lr']))
         acc, loss = single_step(network, train_loader, optimizer, .5 - epoch / args.epochs)
         print("#%d: \tTRAIN  loss:%.03f \t acc:%.03f" % (epoch, loss, acc))
         acc, loss = single_step(network, test_loader)
         print("#%d: \tTEST  loss:%.03f \t acc:%.03f" % (epoch, loss, acc))
+        scheduler.step()
 
+        if best_loss > loss:
+            best_loss = loss
+            print('Saving model to %s' % args.save)
+            torch.save(network, args.save)
 
 
 if __name__ == "__main__":
