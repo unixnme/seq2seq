@@ -107,6 +107,24 @@ class Network(nn.Module):
 
         return loss, result
 
+    def generate(self, seq_in:list, max_len:int):
+        '''
+        generate the sequence with at most max_len
+        '''
+        seq_in.append(self.encoder.embedding.num_embeddings - 1)
+        hid = self.encoder(torch.LongTensor(seq_in).view(1,-1))
+
+        trg = torch.LongTensor([0])
+        result = []
+        for _ in range(max_len):
+            out, hid = self.decoder(trg, hid)
+            top1 = out.argmax(-1).item()
+            if top1 == self.decoder.embedding.num_embeddings - 1:
+                break
+            result.append(top1)
+            trg = torch.LongTensor([top1])
+
+        return result
 
 if __name__ == '__main__':
     network = Network(num_vocab_in=10,
