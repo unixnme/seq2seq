@@ -10,12 +10,15 @@ def main():
     args = parser.parse_args()
 
     network = torch.load(args.load, map_location='cpu')
+    max_num = network.encoder.embedding.num_embeddings - 2
     print('input your sequence:')
     for line in sys.stdin:
         seq_in = [int(token) for token in line.split()]
-        if 0 in seq_in:
-            print('0 cannot be in the input sequence')
-            continue
+        for tok in seq_in:
+            if tok == 0: print('0 cannot be in the sequence')
+            elif tok > max_num: print('%d is the max number allowed in the sequence' % max_num)
+            else: continue
+            exit(-1)
         out = network.generate(seq_in, args.max_length)
         print(out)
         print('input your sequence:')
