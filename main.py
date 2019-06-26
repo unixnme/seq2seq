@@ -22,6 +22,7 @@ def parse_args():
     parser.add_argument('--epochs', type=int, default=1000)
     parser.add_argument('--device', type=str, default='cpu')
     parser.add_argument('--save', type=str, default='model.pt')
+    parser.add_argument('--lr_decay', type=float, default=.999)
 
     args = parser.parse_args()
     if args.tied: assert args.emb_dim == args.hidden_dim
@@ -70,7 +71,7 @@ def main():
                       args.device)
     #optimizer = optim.SGD(network.parameters(), args.lr, 0.99)
     optimizer = optim.RMSprop(network.parameters(), args.lr)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, 1, .99)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, 1, args.lr_decay)
 
     best_loss = float('inf')
     for epoch in range(args.epochs):
