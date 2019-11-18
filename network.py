@@ -71,6 +71,22 @@ class Decoder(RnnLayer):
         return out, hid
 
 
+class Attention(nn.Module):
+    def __init__(self,
+                 hidden_dim:int):
+        super().__init__()
+        self.w1 = nn.Linear(hidden_dim, hidden_dim, False)
+        self.w2 = nn.Linear(hidden_dim, hidden_dim, False)
+        self.v = nn.Parameter(torch.randn(hidden_dim, 1), True)
+
+    def forward(self, hid_enc, hid_dec):
+        '''
+        :param hid_enc: 
+        :param hid_dec:
+        :return:
+        '''
+
+
 class Network(nn.Module):
     def __init__(self,
                  num_vocab_in:int,
@@ -129,6 +145,7 @@ class Network(nn.Module):
             trg = torch.LongTensor([top1])
 
         return result
+
 
 if __name__ == '__main__':
     network = Network(num_vocab_in=10,
