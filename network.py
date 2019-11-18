@@ -7,7 +7,8 @@ class RnnLayer(nn.Module):
     def __init__(self,
                  input_dim:int,
                  hidden_dim:int,
-                 rnn_type:str):
+                 rnn_type:str,
+                 num_layers:int):
         super().__init__()
         if rnn_type == 'GRU':
             layer = nn.GRU
@@ -16,7 +17,7 @@ class RnnLayer(nn.Module):
         else:
             raise Exception('unsupported type')
 
-        self.rnn = layer(input_dim, hidden_dim, batch_first=True)
+        self.rnn = layer(input_dim, hidden_dim, num_layers, batch_first=True)
 
 
 class Encoder(RnnLayer):
@@ -24,9 +25,10 @@ class Encoder(RnnLayer):
                  num_vocab:int,
                  emb_dim:int,
                  hidden_dim:int,
+                 num_layers:int,
                  drop:float,
                  rnn_type:str):
-        super().__init__(emb_dim, hidden_dim, rnn_type)
+        super().__init__(emb_dim, hidden_dim, rnn_type, num_layers)
         self.dropout = nn.Dropout(drop)
         self.embedding = nn.Embedding(num_vocab, emb_dim)
 
@@ -44,10 +46,11 @@ class Decoder(RnnLayer):
                  num_vocab:int,
                  emb_dim:int,
                  hidden_dim:int,
+                 num_layers:int,
                  drop:float,
                  tied:bool,
                  rnn_type:str):
-        super().__init__(emb_dim, hidden_dim, rnn_type)
+        super().__init__(emb_dim, hidden_dim, rnn_type, num_layers)
         self.dropout = nn.Dropout(drop)
         self.embedding = nn.Embedding(num_vocab, emb_dim)
         if not tied:
@@ -74,14 +77,15 @@ class Network(nn.Module):
                  num_vocab_out:int,
                  emb_dim:int,
                  hidden_dim:int,
+                 num_layers:int,
                  drop:float,
                  rnn_type:str='GRU',
                  tied:bool=False,
                  device:str='cpu'):
         super().__init__()
         self.device = device
-        self.encoder = Encoder(num_vocab_in, emb_dim, hidden_dim, drop, rnn_type)
-        self.decoder = Decoder(num_vocab_out, emb_dim, hidden_dim, drop, tied, rnn_type)
+        self.encoder = Encoder(num_vocab_in, emb_dim, hidden_dim, num_layers, drop, rnn_type)
+        self.decoder = Decoder(num_vocab_out, emb_dim, hidden_dim, num_layers, drop, tied, rnn_type)
 
     def forward(self, seq_in, seq_trg, force_prob:float=0.5):
         '''

@@ -14,6 +14,7 @@ def parse_args():
     parser.add_argument('--num_examples', type=int)
     parser.add_argument('--emb_dim', type=int, default=16)
     parser.add_argument('--hidden_dim', type=int, default=16)
+    parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--tied', action='store_true')
     parser.add_argument('--rnn_type', type=str, default='GRU')
     parser.add_argument('--drop', type=float, default=0.5)
@@ -65,6 +66,7 @@ def main():
                       args.num_vocab + 2,
                       args.emb_dim,
                       args.hidden_dim,
+                      args.num_layers,
                       args.drop,
                       args.rnn_type,
                       args.tied,
