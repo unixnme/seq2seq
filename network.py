@@ -37,8 +37,8 @@ class Encoder(RnnLayer):
         seq: [batch_size, seq_len]
         '''
         emb = self.dropout(self.embedding(seq)) # [batch_size, seq_len, emb_dim]
-        _, hid = self.rnn(emb)
-        return hid
+        out, hid = self.rnn(emb)
+        return out, hid
 
 
 class Decoder(RnnLayer):
@@ -94,7 +94,7 @@ class Network(nn.Module):
         '''
         seq_trg_len = seq_trg.shape[1]
         force_teach = torch.rand((seq_trg_len,)) < force_prob
-        hid = self.encoder(seq_in)
+        _, hid = self.encoder(seq_in)
 
         trg = seq_trg[:,0]
         result = seq_trg.clone()
@@ -107,7 +107,7 @@ class Network(nn.Module):
             if force_teach[idx].item():
                 trg = seq_trg[:,idx+1]
             else:
-                trg = top1
+                trg = top1.detach()
 
         return loss, result
 
@@ -129,6 +129,46 @@ class Network(nn.Module):
             trg = torch.LongTensor([top1])
 
         return result
+
+class AttnNetwork(Network):
+    def __init__(self,
+                 num_vocab_in: int,
+                 num_vocab_out: int,
+                 emb_dim: int,
+                 hidden_dim: int,
+                 max_lengt: int,
+                 num_layers: int,
+                 drop: float,
+                 rnn_type: str = 'GRU',
+                 tied: bool = False,
+                 device: str = 'cpu'):
+        super().__init__(num_vocab_in, num_vocab_out, emb_dim, hidden_dim, num_layers, drop, rnn_type, tied, device)
+        self.attention = nn.Linear(hidden_dim*2, max_lengt)
+
+    def forward(self, seq_in, seq_trg, force_prob:float=0.5):
+        '''
+        seq_in: [batch_size, seq_in_len]
+        seq_trg: [batch_size, seq_trg_len]
+        '''
+        seq_trg_len = seq_trg.shape[1]
+        force_teach = torch.rand((seq_trg_len,)) < force_prob
+        hid = self.encoder(seq_in)
+
+        trg = seq_trg[:, 0]
+        result = seq_trg.clone()
+        loss = 0
+        for idx in range(seq_trg_len - 1):
+            out, hid = self.decoder(trg, hid)  # out: [batch_size, num_vocab]
+            loss += F.cross_entropy(out, seq_trg[:, idx + 1])
+            top1 = out.argmax(-1)
+            result[:, idx + 1] = top1
+            if force_teach[idx].item():
+                trg = seq_trg[:, idx + 1]
+            else:
+                trg = top1
+
+        return loss, result
+
 
 if __name__ == '__main__':
     network = Network(num_vocab_in=10,
