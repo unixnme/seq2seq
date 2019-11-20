@@ -116,7 +116,7 @@ class Network(nn.Module):
         generate the sequence with at most max_len
         '''
         seq_in.append(self.encoder.embedding.num_embeddings - 1)
-        hid = self.encoder(torch.LongTensor(seq_in).view(1,-1))
+        _, hid = self.encoder(torch.LongTensor(seq_in).view(1,-1))
 
         trg = torch.LongTensor([0])
         result = []
