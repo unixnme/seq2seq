@@ -85,7 +85,7 @@ def main():
     for epoch in range(args.epochs):
         for param_group in optimizer.param_groups:
             print('#%d: \tLR %f' % (epoch, param_group['lr']))
-        acc, loss = single_step(network, train_loader, optimizer, .5 - epoch / args.epochs)
+        acc, loss = single_step(network, train_loader, optimizer, .8 - epoch / args.epochs)
         print("#%d: \tTRAIN  loss:%.03f \t acc:%.03f" % (epoch, loss, acc))
         acc, loss = single_step(network, test_loader)
         print("#%d: \tTEST  loss:%.03f \t acc:%.03f" % (epoch, loss, acc))

@@ -68,6 +68,7 @@ class Decoder(RnnLayer):
         return self.classify(out), hid
 
     def classify(self, out):
+        out = torch.relu(out)
         if self.tied:
             out = out.squeeze(1) @ self.embedding.weight.t()
         else:
