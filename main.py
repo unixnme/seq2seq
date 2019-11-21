@@ -3,7 +3,7 @@ from data import DataGenerator
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from network import Network
+from network import Network, AttnNetwork
 import numpy as np
 
 
@@ -24,13 +24,14 @@ def parse_args():
     parser.add_argument('--device', type=str, default='cpu')
     parser.add_argument('--save', type=str, default='model.pt')
     parser.add_argument('--lr_decay', type=float, default=.999)
+    parser.add_argument('--attention', action='store_true')
 
     args = parser.parse_args()
     if args.tied: assert args.emb_dim == args.hidden_dim
     return args
 
 
-def single_step(network: Network, loader: DataLoader, optimizer=None, force_prob:float=0.5):
+def single_step(network: Network, loader: DataLoader, optimizer=None, force_prob: float = 0.5):
     train = True if optimizer is not None else False
     total_loss = 0
     total_correct = 0
@@ -62,16 +63,21 @@ def main():
     train_set, test_set = gen.get_tarin_test_datasets()
     train_loader = DataLoader(train_set, args.batch_size, True, pin_memory=True)
     test_loader = DataLoader(test_set, args.batch_size, True, pin_memory=True)
-    network = Network(args.num_vocab + 2,
-                      args.num_vocab + 2,
-                      args.emb_dim,
-                      args.hidden_dim,
-                      args.num_layers,
-                      args.drop,
-                      args.rnn_type,
-                      args.tied,
-                      args.device)
-    #optimizer = optim.SGD(network.parameters(), args.lr, 0.99)
+    if not args.attention:
+        Model = Network
+    else:
+        Model = AttnNetwork
+    network = Model(args.num_vocab + 2,
+                    args.num_vocab + 2,
+                    args.emb_dim,
+                    args.hidden_dim,
+                    args.max_length,
+                    args.num_layers,
+                    args.drop,
+                    args.rnn_type,
+                    args.tied,
+                    args.device)
+    # optimizer = optim.SGD(network.parameters(), args.lr, 0.99)
     optimizer = optim.RMSprop(network.parameters(), args.lr)
     scheduler = optim.lr_scheduler.StepLR(optimizer, 1, args.lr_decay)
 

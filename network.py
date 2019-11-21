@@ -12,8 +12,8 @@ class RnnLayer(nn.Module):
         super().__init__()
         if rnn_type == 'GRU':
             layer = nn.GRU
-        elif rnn_type == 'LSTM':
-            layer = nn.LSTM
+        # elif rnn_type == 'LSTM':
+        #     layer = nn.LSTM
         else:
             raise Exception('unsupported type')
 
@@ -49,7 +49,8 @@ class Decoder(RnnLayer):
                  num_layers:int,
                  drop:float,
                  tied:bool,
-                 rnn_type:str):
+                 rnn_type:str,
+                 max_length:int):
         super().__init__(emb_dim, hidden_dim, rnn_type, num_layers)
         self.dropout = nn.Dropout(drop)
         self.embedding = nn.Embedding(num_vocab, emb_dim)
@@ -70,6 +71,30 @@ class Decoder(RnnLayer):
             out = self.fc(out.squeeze(1)) # [batch_size, num_vocab]
         return out, hid
 
+class AttnDecoder(Decoder):
+    def __init__(self,
+                 num_vocab:int,
+                 emb_dim:int,
+                 hidden_dim:int,
+                 num_layers:int,
+                 drop:float,
+                 rnn_type:str,
+                 max_length:int):
+        super().__init__(num_vocab, emb_dim, hidden_dim, num_layers, drop, False, rnn_type, max_length)
+        self.attention = nn.Linear(hidden_dim*2, max_length)
+
+    def forward(self, x, hid, encoder_out):
+        '''
+        call this for each time frame
+        x: [batch_size]
+        '''
+        emb = self.dropout(self.embedding(x)) # [batch_size, 1, emb_dim]
+        x = torch.cat([emb, hid[-1]], -1)
+        x = torch.softmax(self.attention(x), dim=-1)
+        x = torch.sum(encoder_out * x.unsqueeze(-1), dim=1, keepdim=True)
+        out, hid = self.rnn(x, hid) # out: [batch_size, 1, hidden_dim]
+        out = self.fc(out.squeeze(1)) # [batch_size, num_vocab]
+        return out, hid
 
 class Network(nn.Module):
     def __init__(self,
@@ -77,6 +102,7 @@ class Network(nn.Module):
                  num_vocab_out:int,
                  emb_dim:int,
                  hidden_dim:int,
+                 max_length:int,
                  num_layers:int,
                  drop:float,
                  rnn_type:str='GRU',
@@ -85,7 +111,7 @@ class Network(nn.Module):
         super().__init__()
         self.device = device
         self.encoder = Encoder(num_vocab_in, emb_dim, hidden_dim, num_layers, drop, rnn_type)
-        self.decoder = Decoder(num_vocab_out, emb_dim, hidden_dim, num_layers, drop, tied, rnn_type)
+        self.decoder = Decoder(num_vocab_out, emb_dim, hidden_dim, num_layers, drop, tied, rnn_type, max_length)
 
     def forward(self, seq_in, seq_trg, force_prob:float=0.5):
         '''
@@ -136,14 +162,15 @@ class AttnNetwork(Network):
                  num_vocab_out: int,
                  emb_dim: int,
                  hidden_dim: int,
-                 max_lengt: int,
+                 max_length: int,
                  num_layers: int,
                  drop: float,
                  rnn_type: str = 'GRU',
                  tied: bool = False,
                  device: str = 'cpu'):
-        super().__init__(num_vocab_in, num_vocab_out, emb_dim, hidden_dim, num_layers, drop, rnn_type, tied, device)
-        self.attention = nn.Linear(hidden_dim*2, max_lengt)
+        super().__init__(num_vocab_in, num_vocab_out, emb_dim, hidden_dim, max_length, num_layers, drop, rnn_type, tied, device)
+        self.decoder = AttnDecoder(num_vocab_out, emb_dim, hidden_dim, num_layers, drop, rnn_type, max_length)
+        self.attention = nn.Linear(hidden_dim * 2, max_length)
 
     def forward(self, seq_in, seq_trg, force_prob:float=0.5):
         '''
@@ -152,20 +179,20 @@ class AttnNetwork(Network):
         '''
         seq_trg_len = seq_trg.shape[1]
         force_teach = torch.rand((seq_trg_len,)) < force_prob
-        hid = self.encoder(seq_in)
+        enc_out, hid = self.encoder(seq_in)
 
         trg = seq_trg[:, 0]
         result = seq_trg.clone()
         loss = 0
         for idx in range(seq_trg_len - 1):
-            out, hid = self.decoder(trg, hid)  # out: [batch_size, num_vocab]
+            out, hid = self.decoder(trg, hid, enc_out)  # out: [batch_size, num_vocab]
             loss += F.cross_entropy(out, seq_trg[:, idx + 1])
             top1 = out.argmax(-1)
             result[:, idx + 1] = top1
             if force_teach[idx].item():
                 trg = seq_trg[:, idx + 1]
             else:
-                trg = top1
+                trg = top1.detach()
 
         return loss, result
 
