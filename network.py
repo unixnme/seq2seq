@@ -65,11 +65,14 @@ class Decoder(RnnLayer):
         '''
         emb = self.dropout(self.embedding(x.unsqueeze(1))) # [batch_size, 1, emb_dim]
         out, hid = self.rnn(emb, hid) # out: [batch_size, 1, hidden_dim]
+        return self.classify(out), hid
+
+    def classify(self, out):
         if self.tied:
             out = out.squeeze(1) @ self.embedding.weight.t()
         else:
             out = self.fc(out.squeeze(1)) # [batch_size, num_vocab]
-        return out, hid
+        return out
 
 class AttnDecoder(Decoder):
     def __init__(self,
@@ -78,9 +81,10 @@ class AttnDecoder(Decoder):
                  hidden_dim:int,
                  num_layers:int,
                  drop:float,
+                 tied:bool,
                  rnn_type:str,
                  max_length:int):
-        super().__init__(num_vocab, emb_dim, hidden_dim, num_layers, drop, False, rnn_type, max_length)
+        super().__init__(num_vocab, emb_dim, hidden_dim, num_layers, drop, tied, rnn_type, max_length)
         self.attention = nn.Linear(hidden_dim*2, max_length)
 
     def forward(self, x, hid, encoder_out):
@@ -93,8 +97,7 @@ class AttnDecoder(Decoder):
         x = torch.softmax(self.attention(x), dim=-1)
         x = torch.sum(encoder_out * x.unsqueeze(-1), dim=1, keepdim=True)
         out, hid = self.rnn(x, hid) # out: [batch_size, 1, hidden_dim]
-        out = self.fc(out.squeeze(1)) # [batch_size, num_vocab]
-        return out, hid
+        return self.classify(out), hid
 
 class Network(nn.Module):
     def __init__(self,
@@ -170,7 +173,7 @@ class AttnNetwork(Network):
                  tied: bool = False,
                  device: str = 'cpu'):
         super().__init__(num_vocab_in, num_vocab_out, emb_dim, hidden_dim, max_length, num_layers, drop, rnn_type, tied, device)
-        self.decoder = AttnDecoder(num_vocab_out, emb_dim, hidden_dim, num_layers, drop, rnn_type, max_length)
+        self.decoder = AttnDecoder(num_vocab_out, emb_dim, hidden_dim, num_layers, drop, tied, rnn_type, max_length)
         self.attention = nn.Linear(hidden_dim * 2, max_length)
 
     def forward(self, seq_in, seq_trg, force_prob:float=0.5):
