@@ -112,6 +112,7 @@ class Network(nn.Module):
         self.device = device
         self.encoder = Encoder(num_vocab_in, emb_dim, hidden_dim, num_layers, drop, rnn_type)
         self.decoder = Decoder(num_vocab_out, emb_dim, hidden_dim, num_layers, drop, tied, rnn_type, max_length)
+        self.max_length = max_length
 
     def forward(self, seq_in, seq_trg, force_prob:float=0.5):
         '''
@@ -120,13 +121,13 @@ class Network(nn.Module):
         '''
         seq_trg_len = seq_trg.shape[1]
         force_teach = torch.rand((seq_trg_len,)) < force_prob
-        _, hid = self.encoder(seq_in)
+        _, hid = self.encoder.forward(seq_in)
 
         trg = seq_trg[:,0]
         result = seq_trg.clone()
         loss = 0
         for idx in range(seq_trg_len - 1):
-            out, hid = self.decoder(trg, hid) # out: [batch_size, num_vocab]
+            out, hid = self.decoder.forward(trg, hid) # out: [batch_size, num_vocab]
             loss += F.cross_entropy(out, seq_trg[:,idx+1])
             top1 = out.argmax(-1)
             result[:,idx+1] = top1
@@ -141,13 +142,13 @@ class Network(nn.Module):
         '''
         generate the sequence with at most max_len
         '''
-        seq_in.append(self.encoder.embedding.num_embeddings - 1)
-        _, hid = self.encoder(torch.LongTensor(seq_in).view(1,-1))
+        seq_in.extend([self.encoder.embedding.num_embeddings - 1] * (max_len - len(seq_in)))
+        enc_out, hid = self.encoder.forward(torch.LongTensor(seq_in).view(1,-1))
 
         trg = torch.LongTensor([0])
         result = []
         for _ in range(max_len):
-            out, hid = self.decoder(trg, hid)
+            out, hid = self.decoder.forward(trg, hid, enc_out)
             top1 = out.argmax(-1).item()
             if top1 == self.decoder.embedding.num_embeddings - 1:
                 break
@@ -179,13 +180,13 @@ class AttnNetwork(Network):
         '''
         seq_trg_len = seq_trg.shape[1]
         force_teach = torch.rand((seq_trg_len,)) < force_prob
-        enc_out, hid = self.encoder(seq_in)
+        enc_out, hid = self.encoder.forward(seq_in)
 
         trg = seq_trg[:, 0]
         result = seq_trg.clone()
         loss = 0
         for idx in range(seq_trg_len - 1):
-            out, hid = self.decoder(trg, hid, enc_out)  # out: [batch_size, num_vocab]
+            out, hid = self.decoder.forward(trg, hid, enc_out)  # out: [batch_size, num_vocab]
             loss += F.cross_entropy(out, seq_trg[:, idx + 1])
             top1 = out.argmax(-1)
             result[:, idx + 1] = top1
